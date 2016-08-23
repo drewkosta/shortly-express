@@ -34,6 +34,7 @@ app.use(session({
 
 var restrict = function (req, res, next) {
   if (req.session.name) {
+    console.log('session name', req.session.name);
     return next();
   }
   res.redirect(301, '/login');
@@ -51,12 +52,25 @@ function(req, res) {
 
 app.get('/links', restrict,
 function(req, res) {
-  Links.reset().fetch().then(function(links) {
-    res.status(200).send(links.models);
+  Users.reset().fetch().then(function(users) {
+    console.log(users.models);
+    var userId;
+    users.models.forEach(function(user) {
+      if (user.attributes.username === req.session.name) {
+        userId = user.attributes.id;
+      }
+    });
+    Links.reset().fetch({'userId': userId}).then(function(links) {
+      console.log('links', links.models);
+      res.status(200).send(links.models);
+    });
   });
+  // Users.where('id', 5).then(function(user) {
+    // console.log('user', user.attributes);
+  // });
 });
 
-app.post('/links',
+app.post('/links', restrict,
 function(req, res) {
   var uri = req.body.url;
 
@@ -74,7 +88,6 @@ function(req, res) {
           console.log('Error reading URL heading: ', err);
           return res.sendStatus(404);
         }
-
         Links.create({
           url: uri,
           title: title,
@@ -131,9 +144,11 @@ app.post('/login',
 function (req, res) {
   new User({ username: req.body.username }).fetch().then(function(user) {
     if (user) {
-      console.log('user', user.attributes);
-      console.log(req.body.password, user.attributes.salt);
+      // console.log('user', user.attributes);
+      // console.log(req.body.password, user.attributes.salt);
+
       var hash = bcrypt.hashSync(req.body.password, user.attributes.salt);
+
       if (hash === user.attributes.password) {
         console.log('logging in');
         req.session.name = req.body.username;
@@ -146,10 +161,10 @@ function (req, res) {
 });
 
 app.get('/logout', function (req, res) {
-  res.redirect('/login');
-  // req.session.destroy(function () {
-  //   console.log('logging out');
-  // });
+  req.session.destroy(function () {
+    res.redirect('/login');
+    console.log('logging out');
+  });
 });
 
 /************************************************************/

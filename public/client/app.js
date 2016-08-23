@@ -37,14 +37,12 @@ window.Shortly = Backbone.View.extend({
       .removeClass('selected')
       .filter('.' + routeName)
       .addClass('selected');
-  },
-
-  logout: function(e) {
-    e && e.preventDefault();
-    var dis = this;
-    $.get('/logout', function () {
-      console.log('in logout');
-      // dis.router.navigate('/login', { trigger: true });
-    });
   }
+
+  // logout: function(e) {
+  //   $.get('/logout', function () {
+  //     console.log('in logout');
+  //     this.router.navigate('/login', { trigger: true });
+  //   }.bind(this));
+  // }
 });
