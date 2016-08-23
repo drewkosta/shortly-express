@@ -3,6 +3,8 @@ var util = require('./lib/utility');
 var partials = require('express-partials');
 var bodyParser = require('body-parser');
 var session = require('express-session');
+var sha1 = require('sha1');
+var bcrypt = require('bcrypt');
 
 
 var db = require('./app/config');
@@ -31,6 +33,9 @@ app.use(session({
 }));
 
 var restrict = function (req, res, next) {
+  if (req.session.name) {
+    return next();
+  }
   res.redirect(301, '/login');
 };
 
@@ -99,21 +104,52 @@ app.get('/signup', function (req, res) {
 app.post('/signup', function (req, res) {
   var username = req.body.username;
   var password = req.body.password;
+  var salt = bcrypt.genSaltSync(10);
+  var hash = bcrypt.hashSync(password, salt);
+
   new User({ username: username }).fetch().then(function(found) {
     if (found) {
-      console.log('Found username in table');
-      res.status(200).send(found.attributes);
+      console.log('Username already exists.');
+      res.redirect(201, '/login');
     } else {
+      console.log('salt', salt);
       Users.create({
         username: username,
-        password: password
+        password: hash,
+        salt: salt
       })
       .then(function(newUser) {
+        req.session.name = username;
         console.log('A new user is created', newUser.attributes);
-        res.status(200).send(newUser.attributes);
+        res.status(200).redirect('/');
       });
     }
   });
+});
+
+app.post('/login', 
+function (req, res) {
+  new User({ username: req.body.username }).fetch().then(function(user) {
+    if (user) {
+      console.log('user', user.attributes);
+      console.log(req.body.password, user.attributes.salt);
+      var hash = bcrypt.hashSync(req.body.password, user.attributes.salt);
+      if (hash === user.attributes.password) {
+        console.log('logging in');
+        req.session.name = req.body.username;
+        res.redirect('/');
+      }
+    } else {
+      res.redirect('/login');
+    }
+  });
+});
+
+app.get('/logout', function (req, res) {
+  res.redirect('/login');
+  // req.session.destroy(function () {
+  //   console.log('logging out');
+  // });
 });
 
 /************************************************************/
@@ -139,6 +175,10 @@ app.get('/*', function(req, res) {
       });
     }
   });
+});
+
+app.post('/*', function(req, res) {
+  res.redirect('/');
 });
 
 console.log('Shortly is listening on 4568');
